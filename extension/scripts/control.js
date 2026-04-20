@@ -1,4 +1,4 @@
-// core logic
+// extension core logic
 
 const SPEED_STEP = 0.25;
 const MAX_SPEED = 128;
@@ -8,26 +8,56 @@ const HOTKEYS = {
   reset: "*",
 };
 
-let currentSpeed = 1;
+let siteSpeeds = {}; // speed values for different websites
+let currentSpeed = 1; // for tracking current speed and ensuring its validness
 
+function getHostName() {
+  return location.hostname;
+}
+
+/**
+ * Returns stored speed value for current website
+ */
+function getSpeed() {
+  const site = getHostName();
+  return siteSpeeds[site] ?? siteSpeeds["default"] ?? 1;
+}
+
+/**
+ * Set speed value for current website
+ */
 function setSpeed() {
   if (!Number.isFinite(currentSpeed) || currentSpeed <= 0) return;
-
+  const speed = getSpeed();
   const videos = document.querySelectorAll("video");
+
   videos.forEach((video) => {
-    if (video.playbackRate !== currentSpeed) video.playbackRate = currentSpeed;
+    video.playbackRate = speed;
   });
 }
 
-async function loadSpeed() {
-  const data = await browser.storage.local.get("speed");
-  currentSpeed = Number(data.speed) || 1;
+/**
+ * Initialize speed value variables using local storage
+ */
+async function loadSpeedValues() {
+  const data = await browser.storage.local.get("speeds");
+
+  siteSpeeds = data.sidespeeds || {};
+  currentSpeed = getSpeed();
+
   setSpeed();
 }
 
-async function saveSpeed(speed) {
+/**
+ * Update speed values for variables and save data into local storage
+ */
+async function saveSpeedValue(speed) {
+  const site = getHostName();
+
   currentSpeed = speed;
-  await browser.storage.local.set({ speed });
+  siteSpeeds[site] = speed;
+
+  await browser.storage.local.set({ speeds: siteSpeeds });
   setSpeed();
 }
 
@@ -41,6 +71,7 @@ observer.observe(document.documentElement, {
   subtree: true,
 });
 
+// hotkeys
 document.addEventListener("keydown", async (e) => {
   // prevent writing into any input fields
   if (["input", "textarea"].includes(document.activeElement.tagName)) return;
@@ -61,22 +92,19 @@ document.addEventListener("keydown", async (e) => {
     }
 
     updatedSpeed = Math.max(SPEED_STEP, Math.min(updatedSpeed, MAX_SPEED));
-
-    await saveSpeed(updatedSpeed);
+    await saveSpeedValue(updatedSpeed);
   }
 });
 
-// listener to access ui slider/number input messages
+// listen to ui inputs and update values
 browser.runtime.onMessage.addListener((message) => {
   if (message?.type === "SET_SPEED") {
     const speed = Number(message.speed);
 
     if (!Number.isFinite(speed) || speed <= 0) return;
 
-    currentSpeed = speed;
-    browser.storage.local.set({ speed });
-    setSpeed();
+    saveSpeedValue(speed);
   }
 });
 
-loadSpeed();
+loadSpeedValues();
