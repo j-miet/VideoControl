@@ -66,4 +66,17 @@ document.addEventListener("keydown", async (e) => {
   }
 });
 
+// listener to access ui slider/number input messages
+browser.runtime.onMessage.addListener((message) => {
+  if (message?.type === "SET_SPEED") {
+    const speed = Number(message.speed);
+
+    if (!Number.isFinite(speed) || speed <= 0) return;
+
+    currentSpeed = speed;
+    browser.storage.local.set({ speed });
+    setSpeed();
+  }
+});
+
 loadSpeed();
