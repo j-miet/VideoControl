@@ -42,7 +42,7 @@ function setSpeed() {
 async function loadSpeedValues() {
   const data = await browser.storage.local.get("speeds");
 
-  siteSpeeds = data.sidespeeds || {};
+  siteSpeeds = data.speeds || {};
   currentSpeed = getSpeed();
 
   setSpeed();
@@ -96,15 +96,17 @@ document.addEventListener("keydown", async (e) => {
   }
 });
 
-// listen to ui inputs and update values
+// listen to ui inputs and update values, also onMessage should always return a promise
 browser.runtime.onMessage.addListener((message) => {
   if (message?.type === "SET_SPEED") {
     const speed = Number(message.speed);
 
-    if (!Number.isFinite(speed) || speed <= 0) return;
+    if (!Number.isFinite(speed) || speed <= 0) return Promise.resolve();
 
     saveSpeedValue(speed);
   }
+
+  return Promise.resolve();
 });
 
 loadSpeedValues();
