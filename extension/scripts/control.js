@@ -42,16 +42,15 @@ function getSpeed() {
 function setSpeed() {
   if (!Number.isFinite(currentSpeed) || currentSpeed <= 0) return;
 
-  const videos = document.querySelectorAll("video");
+  const video = getActiveVideo();
+  if (!video) return;
 
-  videos.forEach((video) => {
-    createOverlay(video);
+  createOverlay(video);
 
-    if (video.playbackRate !== currentSpeed) {
-      video.playbackRate = currentSpeed;
-      showOverlay(video, currentSpeed);
-    }
-  });
+  if (video.playbackRate !== currentSpeed) {
+    video.playbackRate = currentSpeed;
+    showOverlay(video, currentSpeed);
+  }
 }
 
 function createOverlay(video) {
@@ -75,13 +74,13 @@ function createOverlay(video) {
     transition: "opacity 0.2s ease",
   });
 
-  // create a wrapper in order to place the overlay on top of video
-  const wrapper = document.createElement("div");
-  wrapper.style.position = "relative"; // allows overlay to target wrapper element with its absolute positioning
+  const parent = video.parentElement;
+  if (!parent) return;
 
-  video.parentNode?.insertBefore(wrapper, video);
-  wrapper.appendChild(video);
-  wrapper.appendChild(overlay);
+  const style = window.getComputedStyle(parent);
+  if (style.position === "static") parent.style.position = "relative";
+
+  parent.appendChild(overlay);
 
   video.__speedOverlay = overlay;
   video.__overlayTimeout = null;
@@ -101,6 +100,36 @@ function showOverlay(video, speed) {
   video.__overlayTimeout = setTimeout(() => {
     overlay.style.opacity = "0";
   }, 1500);
+}
+
+function getActiveVideo() {
+  const videos = Array.from(document.querySelectorAll("video"));
+
+  let best = null;
+  let bestScore = 0;
+
+  for (const video of videos) {
+    const rect = video.getBoundingClientRect();
+
+    if (
+      rect.width < 200 ||
+      rect.height < 150 ||
+      rect.bottom < 0 ||
+      rect.top > window.innerHeight
+    ) {
+      continue;
+    }
+
+    const score = rect.width * rect.height;
+
+    // find active video by comparing video size
+    if (score > bestScore) {
+      best = video;
+      bestScore = score;
+    }
+  }
+
+  return best;
 }
 
 // if any changes in DOM tree, re-apply speed modifier
