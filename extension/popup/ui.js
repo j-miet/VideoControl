@@ -75,7 +75,7 @@ browser.storage.onChanged.addListener((changes, area) => {
 
   const speeds = changes.speeds.newValue || {};
 
-  const speed = Number(speeds[currentSite] ?? speeds["default"]) || 1;
+  const speed = Number(speeds[currentSite]) || 1;
 
   slider.value = speed;
   number.value = speed;
