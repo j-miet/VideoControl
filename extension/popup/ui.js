@@ -12,7 +12,7 @@ async function load() {
   const data = await browser.storage.local.get("speeds");
   const siteSpeeds = data.speeds || {};
 
-  const speed = Number(siteSpeeds[currentSite] ?? siteSpeeds["default"]) || 1;
+  const speed = Number(siteSpeeds[currentSite]) || 1;
 
   slider.value = speed;
   number.value = speed;
@@ -33,7 +33,7 @@ async function save(speed) {
   if (tab?.id) {
     browser.tabs.sendMessage(tab.id, {
       type: "SET_SPEED",
-      speed,
+      speed: val,
     });
   }
 }
