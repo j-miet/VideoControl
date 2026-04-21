@@ -5,28 +5,6 @@ const number = document.getElementById("number");
 
 let currentSite = "default";
 
-/**
- * Fetch the website host url of currently active tab
- */
-async function getCurrentSite() {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-
-  if (!tab?.url) return "default";
-
-  try {
-    const url = new URL(tab.url);
-
-    if (!url.hostname) return "default";
-
-    return url.hostname;
-  } catch {
-    return "default";
-  }
-}
-
-/**
- * Load speed value for current website
- */
 async function load() {
   currentSite = await getCurrentSite();
   document.getElementById("site").textContent = currentSite;
@@ -40,9 +18,6 @@ async function load() {
   number.value = speed;
 }
 
-/**
- * Store speed value for current website
- */
 async function save(speed) {
   const val = Number(speed) || 1;
 
@@ -60,6 +35,22 @@ async function save(speed) {
       type: "SET_SPEED",
       speed,
     });
+  }
+}
+
+async function getCurrentSite() {
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+
+  if (!tab?.url) return "default";
+
+  try {
+    const url = new URL(tab.url);
+
+    if (!url.hostname) return "default";
+
+    return url.hostname;
+  } catch {
+    return "default";
   }
 }
 
