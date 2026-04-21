@@ -11,34 +11,6 @@ const HOTKEYS = {
 let siteSpeeds = {}; // speed values for different websites
 let currentSpeed = 1; // for tracking current speed and ensuring its validness
 
-function getHostName() {
-  return location.hostname;
-}
-
-/**
- * Returns stored speed value for current website
- */
-function getSpeed() {
-  const site = getHostName();
-  return siteSpeeds[site] ?? siteSpeeds["default"] ?? 1;
-}
-
-/**
- * Set speed value for current website
- */
-function setSpeed() {
-  if (!Number.isFinite(currentSpeed) || currentSpeed <= 0) return;
-  const speed = getSpeed();
-  const videos = document.querySelectorAll("video");
-
-  videos.forEach((video) => {
-    video.playbackRate = speed;
-  });
-}
-
-/**
- * Initialize speed value variables using local storage
- */
 async function loadSpeedValues() {
   const data = await browser.storage.local.get("speeds");
 
@@ -48,9 +20,6 @@ async function loadSpeedValues() {
   setSpeed();
 }
 
-/**
- * Update speed values for variables and save data into local storage
- */
 async function saveSpeedValue(speed) {
   const site = getHostName();
 
@@ -59,6 +28,79 @@ async function saveSpeedValue(speed) {
 
   await browser.storage.local.set({ speeds: siteSpeeds });
   setSpeed();
+}
+
+function getHostName() {
+  return location.hostname;
+}
+
+function getSpeed() {
+  const site = getHostName();
+  return siteSpeeds[site] ?? siteSpeeds["default"] ?? 1;
+}
+
+function setSpeed() {
+  if (!Number.isFinite(currentSpeed) || currentSpeed <= 0) return;
+
+  const videos = document.querySelectorAll("video");
+
+  videos.forEach((video) => {
+    createOverlay(video);
+
+    if (video.playbackRate !== currentSpeed) {
+      video.playbackRate = currentSpeed;
+      showOverlay(video, currentSpeed);
+    }
+  });
+}
+
+function createOverlay(video) {
+  if (video.__speedOverlay) return;
+
+  const overlay = document.createElement("div");
+
+  Object.assign(overlay.style, {
+    position: "absolute",
+    top: "8px",
+    left: "8px",
+    background: "rgba(0,0,0,0.5)",
+    color: "white",
+    padding: "3px 8px",
+    fontSize: "13px",
+    borderRadius: "6px",
+    zIndex: 999999,
+    pointerEvents: "none",
+    fontFamily: "sans-serif",
+    opacity: "0",
+    transition: "opacity 0.2s ease",
+  });
+
+  // create a wrapper in order to place the overlay on top of video
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "relative"; // allows overlay to target wrapper element with its absolute positioning
+
+  video.parentNode?.insertBefore(wrapper, video);
+  wrapper.appendChild(video);
+  wrapper.appendChild(overlay);
+
+  video.__speedOverlay = overlay;
+  video.__overlayTimeout = null;
+}
+
+function showOverlay(video, speed) {
+  const overlay = video.__speedOverlay;
+  if (!overlay) return;
+
+  overlay.textContent = `${speed.toFixed(2)}x`;
+  overlay.style.opacity = "1";
+
+  if (video.__overlayTimeout) {
+    clearTimeout(video.__overlayTimeout);
+  }
+
+  video.__overlayTimeout = setTimeout(() => {
+    overlay.style.opacity = "0";
+  }, 1500);
 }
 
 // if any changes in DOM tree, re-apply speed modifier
