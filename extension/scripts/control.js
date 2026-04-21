@@ -1,11 +1,14 @@
 // extension core logic
 
 const SPEED_STEP = 0.25;
+const TIME_STEP = 10;
 const MAX_SPEED = 128;
 const HOTKEYS = {
   decrease: "-",
   increase: "+",
   reset: "*",
+  forward: "ArrowRight",
+  backward: "ArrowLeft",
 };
 
 let siteSpeeds = {}; // speed values for different websites
@@ -147,6 +150,9 @@ document.addEventListener("keydown", async (e) => {
   // prevent writing into any input fields
   if (["input", "textarea"].includes(document.activeElement.tagName)) return;
 
+  const video = getActiveVideo();
+  if (!video) return;
+
   if (
     e.key === HOTKEYS.decrease ||
     e.key === HOTKEYS.increase ||
@@ -164,6 +170,12 @@ document.addEventListener("keydown", async (e) => {
 
     updatedSpeed = Math.max(SPEED_STEP, Math.min(updatedSpeed, MAX_SPEED));
     await saveSpeedValue(updatedSpeed);
+  }
+
+  if (e.shiftKey && e.key === HOTKEYS.forward) {
+    video.currentTime += TIME_STEP;
+  } else if (e.shiftKey && e.key === HOTKEYS.backward) {
+    video.currentTime -= TIME_STEP;
   }
 });
 
