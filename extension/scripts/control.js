@@ -1,19 +1,28 @@
 // extension core logic
 
 const SPEED_STEP = 0.25;
-const TIME_STEP = 10;
+const TIME_STEP = 30;
 const MAX_SPEED = 128;
-const HOTKEYS = {
-  decrease: "-",
-  increase: "+",
-  reset: "*",
-  forward: "ArrowRight",
-  backward: "ArrowLeft",
-  screenshot: "S",
+const DEFAULT_HOTKEYS = {
+  increase: { key: "+", shift: false, ctrl: false, alt: false },
+  decrease: { key: "-", shift: false, ctrl: false, alt: false },
+  reset: { key: "*", shift: false, ctrl: false, alt: false },
+  forward: { key: "h", shift: true, ctrl: false, alt: false },
+  backward: { key: "g", shift: true, ctrl: false, alt: false },
+  screenshot: { key: "c", shift: false, ctrl: true, alt: false },
 };
 
+let hotkeys = { ...DEFAULT_HOTKEYS };
 let siteSpeeds = {}; // speed values for different websites
 let currentSpeed = 1; // for tracking current speed and ensuring its validness
+
+async function loadHotkeys() {
+  const data = await browser.storage.local.get("hotkeys");
+
+  if (data.hotkeys) {
+    hotkeys = { ...DEFAULT_HOTKEYS, ...data.hotkeys };
+  }
+}
 
 async function loadSpeedValues() {
   const data = await browser.storage.local.get("speeds");
@@ -172,6 +181,25 @@ async function takeScreenshot(video) {
   }
 }
 
+function normalizeKey(key) {
+  // modify only single characters key and leave special keys unchanged
+  if (key.length === 1) return key.toLowerCase();
+  return key;
+}
+
+function matchesHotkey(e, config) {
+  // TODO could implement keycodes with e.code, making this more compatible with different keyboard layouts
+  const eventKey = normalizeKey(e.key);
+  const configKey = normalizeKey(config.key);
+
+  return (
+    eventKey === configKey &&
+    e.shiftKey === !!config.shift &&
+    e.ctrlKey === !!config.ctrl &&
+    e.altKey === !!config.alt
+  );
+}
+
 // if any changes in DOM tree, re-apply speed modifier
 const observer = new MutationObserver(() => {
   setSpeed();
@@ -184,44 +212,41 @@ observer.observe(document.documentElement, {
 
 // hotkeys
 document.addEventListener("keydown", async (e) => {
+  if (e.repeat) return;
+
+  const active = document.activeElement;
+
   // prevent writing into any input fields
-  if (["input", "textarea"].includes(document.activeElement.tagName)) return;
+  if (
+    active &&
+    (active.tagName === "INPUT" ||
+      active.tagName === "TEXTAREA" ||
+      active.isContentEditable)
+  ) {
+    return;
+  }
+
+  if (["Shift", "Control", "Alt"].includes(e.key)) return; // ignore modifier keys when used alone
 
   const video = getActiveVideo();
   if (!video) return;
 
-  if (
-    e.key === HOTKEYS.decrease ||
-    e.key === HOTKEYS.increase ||
-    e.key === HOTKEYS.reset
-  ) {
-    let updatedSpeed = currentSpeed;
-
-    if (e.key === HOTKEYS.increase) {
-      updatedSpeed += SPEED_STEP;
-    } else if (e.key === HOTKEYS.decrease) {
-      updatedSpeed -= SPEED_STEP;
-    } else if (e.key === HOTKEYS.reset) {
-      updatedSpeed = 1;
-    }
-    showOverlay(video, `${currentSpeed.toFixed(2)}x`);
-
-    updatedSpeed = Math.max(SPEED_STEP, Math.min(updatedSpeed, MAX_SPEED));
-    await saveSpeedValue(updatedSpeed);
-  }
-
-  if (e.shiftKey && e.key === HOTKEYS.forward) {
+  if (matchesHotkey(e, hotkeys.increase)) {
+    let updated = Math.min(currentSpeed + SPEED_STEP, MAX_SPEED);
+    await saveSpeedValue(updated);
+  } else if (matchesHotkey(e, hotkeys.decrease)) {
+    let updated = Math.max(currentSpeed - SPEED_STEP, SPEED_STEP);
+    await saveSpeedValue(updated);
+  } else if (matchesHotkey(e, hotkeys.reset)) {
+    await saveSpeedValue(1);
+  } else if (matchesHotkey(e, hotkeys.forward)) {
     video.currentTime += TIME_STEP;
-    showOverlay(video, `+${SEEK_STEP}s`);
-  } else if (e.shiftKey && e.key === HOTKEYS.backward) {
+    showOverlay(video, `+${TIME_STEP}s`);
+  } else if (matchesHotkey(e, hotkeys.backward)) {
     video.currentTime -= TIME_STEP;
-    showOverlay(video, `-${SEEK_STEP}s`);
-  } else if (e.shiftKey && e.key === HOTKEYS.screenshot) {
-    const video = getActiveVideo();
-    if (!video || e.repeat) return;
-
+    showOverlay(video, `-${TIME_STEP}s`);
+  } else if (matchesHotkey(e, hotkeys.screenshot)) {
     takeScreenshot(video);
-    showOverlay(video, "Screenshot...");
   }
 });
 
@@ -245,4 +270,5 @@ browser.runtime.onMessage.addListener((message) => {
   return Promise.resolve();
 });
 
+loadHotkeys();
 loadSpeedValues();
