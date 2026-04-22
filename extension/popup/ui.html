@@ -4,27 +4,44 @@
     <link rel="stylesheet" href="ui.css" />
   </head>
   <body>
-    <h4 id="site"></h4>
-    <h3>Playback Speed</h3>
-    <input type="range" id="slider" min="0.25" max="8" step="0.25" />
-    <input type="number" id="number" min="0.25" max="128" step="0.25" />
-
-    <h4>Speed Step</h4>
-    <div class="row">
-      <input type="number" id="speedStep" min="0.05" max="5" step="0.05" />
-      <span id="speedStepValue" class="value"></span>
+    <h4 title="Domain name" id="site"></h4>
+    <div class="section">
+      <h3 title="Video playback speed. Stored individually for each site">
+        Playback Speed
+      </h3>
+      <div class="row">
+        <input type="range" id="slider" min="0.25" max="8" step="0.25" />
+        <input type="number" id="number" min="0.25" max="128" step="0.25" />
+      </div>
     </div>
 
-    <h4>Time Step</h4>
-    <div class="row">
-      <input type="number" id="timeStep" min="1" max="300" step="1" />
-      <span id="timeStepValue" class="value"></span>
+    <div class="section">
+      <h3 title="Step size for speed increase/decrease">Speed (0.05x-5x)</h3>
+      <div class="row">
+        <label>Step</label>
+        <input type="number" id="speedStep" min="0.05" max="5" step="0.05" />
+        <span class="hint" id="speedStepValue"></span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3 title="Step size for forward/backward">Time step (1s-300s)</h3>
+      <div class="row">
+        <label>Step</label>
+        <input type="number" id="timeStep" min="1" max="300" step="1" />
+        <span class="hint" id="timeStepValue"></span>
+      </div>
     </div>
 
     <h4>Hotkeys</h4>
     <div id="hotkeys"></div>
 
-    <button id="screenshotButton">Copy Screenshot</button>
+    <button
+      title="Take screenshot of current video frame and copy it to clipboard"
+      id="screenshotButton"
+    >
+      Copy Screenshot to Clipboard
+    </button>
 
     <script src="ui.js"></script>
   </body>

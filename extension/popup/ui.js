@@ -9,12 +9,31 @@ const DEFAULT_HOTKEYS = {
   screenshot: { key: "c", shift: false, ctrl: true, alt: false },
 };
 const LABELS = {
-  increase: "Increase speed",
-  decrease: "Decrease speed",
-  reset: "Reset speed to 1.0x",
-  forward: "Forward",
-  backward: "Backward",
-  screenshot: "Screenshot",
+  increase: {
+    label: "Increase speed",
+    title: "Increase video speed based on current speed value",
+  },
+  decrease: {
+    label: "Decrease speed",
+    title: "Decrease video speed based on current speed value",
+  },
+  reset: {
+    label: "Reset speed",
+    title: "Reset video speed to 1.0x",
+  },
+  forward: {
+    label: "Forward",
+    title: "Jump forward by amount defined in time step",
+  },
+  backward: {
+    label: "Backward",
+    title: "Jump backward by amount defined in time step",
+  },
+  screenshot: {
+    label: "Screenshot",
+    title:
+      "Take screenshot of current main video frame and copy it to clipboard",
+  },
 };
 // remember to adjust html if you change these values
 const MIN_SPEED = 0.05;
@@ -128,7 +147,8 @@ function renderHotkeys() {
     row.className = "hotkey-row";
 
     const label = document.createElement("span");
-    label.textContent = LABELS[action] || action;
+    label.textContent = LABELS[action].label || action;
+    label.title = LABELS[action].title || "";
 
     const btn = document.createElement("button");
     btn.className = "hotkey-button";
@@ -186,7 +206,7 @@ function startRecording(action, btn) {
 
 function updateLabels(settings) {
   document.getElementById("speedStepValue").textContent =
-    `${settings.speedStep ?? 0.25}x`;
+    `${Number(settings.speedStep ?? 0.25).toFixed(2)}x`;
 
   document.getElementById("timeStepValue").textContent =
     `${settings.timeStep ?? 5}s`;

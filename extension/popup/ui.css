@@ -1,39 +1,64 @@
 body {
-  font-family: sans-serif;
-  width: 200px;
-  padding: 8px;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  width: 240px;
   margin: 0;
+  padding: 10px;
+  background: #f7f7f9;
+  color: #111;
 }
 
-h3,
-h4 {
-  margin: 6px 0 4px;
+h3 {
+  margin: 6px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-input {
-  width: 70%;
-  font-size: 12px;
-  padding: 2px;
+.section {
+  background: white;
+  border-radius: 10px;
+  padding: 8px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
 }
 
-.value {
+label {
   font-size: 12px;
-  color: #666;
-  min-width: 50px;
+  color: #555;
+  width: 50px;
+}
+
+input {
+  width: 70px;
+  padding: 3px 5px;
+  font-size: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+}
+
+input:focus {
+  border-color: #4c8bf5;
+}
+
+.hint {
+  font-size: 11px;
+  color: #777;
+  min-width: 40px;
   text-align: right;
 }
 
-#slider,
-#number {
-  width: 100%;
-  font-size: 15px;
+#slider {
+  width: 90%;
 }
 
 #screenshotButton {
