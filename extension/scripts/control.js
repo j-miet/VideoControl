@@ -161,10 +161,10 @@ async function takeScreenshot(video) {
           }),
         ]);
 
-        showOverlay(video, "📋 Copied!");
+        showOverlay(video, "Screenshot Copied!");
       } catch (err) {
         console.error("Clipboard write failed:", err);
-        showOverlay(video, "❌ Failed");
+        showOverlay(video, "ScreenShot Failed");
       }
     }, "image/png");
   } catch (err) {
@@ -221,7 +221,7 @@ document.addEventListener("keydown", async (e) => {
     if (!video || e.repeat) return;
 
     takeScreenshot(video);
-    showOverlay(video, "Screenshot");
+    showOverlay(video, "Screenshot...");
   }
 });
 
@@ -233,6 +233,13 @@ browser.runtime.onMessage.addListener((message) => {
     if (!Number.isFinite(speed) || speed <= 0) return Promise.resolve();
 
     saveSpeedValue(speed);
+  }
+
+  if (message?.type === "SCREENSHOT") {
+    const video = getActiveVideo();
+    if (!video) return;
+
+    takeScreenshot(video);
   }
 
   return Promise.resolve();

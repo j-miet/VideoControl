@@ -2,6 +2,7 @@
 
 const slider = document.getElementById("slider");
 const number = document.getElementById("number");
+const btn = document.getElementById("screenshotButton");
 
 let currentSite = "default";
 
@@ -79,6 +80,20 @@ browser.storage.onChanged.addListener((changes, area) => {
 
   slider.value = speed;
   number.value = speed;
+});
+
+// screenshot
+btn.addEventListener("click", async () => {
+  const [tab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (tab?.id) {
+    browser.tabs.sendMessage(tab.id, {
+      type: "SCREENSHOT",
+    });
+  }
 });
 
 load();
