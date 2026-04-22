@@ -9,10 +9,22 @@
     <input type="range" id="slider" min="0.25" max="8" step="0.25" />
     <input type="number" id="number" min="0.25" max="128" step="0.25" />
 
-    <button id="screenshotButton">Copy Screenshot to Clipboard</button>
+    <h4>Speed Step</h4>
+    <div class="row">
+      <input type="number" id="speedStep" min="0.05" max="5" step="0.05" />
+      <span id="speedStepValue" class="value"></span>
+    </div>
+
+    <h4>Time Step</h4>
+    <div class="row">
+      <input type="number" id="timeStep" min="1" max="300" step="1" />
+      <span id="timeStepValue" class="value"></span>
+    </div>
 
     <h4>Hotkeys</h4>
     <div id="hotkeys"></div>
+
+    <button id="screenshotButton">Copy Screenshot</button>
 
     <script src="ui.js"></script>
   </body>

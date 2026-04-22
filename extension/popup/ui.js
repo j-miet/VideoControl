@@ -16,16 +16,31 @@ const LABELS = {
   backward: "Backward",
   screenshot: "Screenshot",
 };
-const MIN_SPEED = 0.25;
+// remember to adjust html if you change these values
+const MIN_SPEED = 0.05;
 const MAX_SPEED = 128;
+const MIN_TIMESTEP = 1;
+const MAX_TIMESTEP = 300;
 
 const slider = document.getElementById("slider");
 const number = document.getElementById("number");
 const btn = document.getElementById("screenshotButton");
+const timestepInput = document.getElementById("timeStep");
+const speedstepInput = document.getElementById("speedStep");
 
 let hotkeys = {};
 let currentSite = "default";
 let recordingAction = null;
+
+async function loadSettingsUI() {
+  const data = await browser.storage.local.get("settings");
+  const settings = data.settings || {};
+
+  timestepInput.value = settings.timeStep ?? 5;
+  speedstepInput.value = settings.speedStep ?? 0.25;
+
+  updateLabels(settings);
+}
 
 async function loadHotkeysUI() {
   const data = await browser.storage.local.get("hotkeys");
@@ -169,6 +184,14 @@ function startRecording(action, btn) {
   window.addEventListener("keydown", handler);
 }
 
+function updateLabels(settings) {
+  document.getElementById("speedStepValue").textContent =
+    `${settings.speedStep ?? 0.25}x`;
+
+  document.getElementById("timeStepValue").textContent =
+    `${settings.timeStep ?? 5}s`;
+}
+
 function clampSpeed(value) {
   const num = Number(value);
 
@@ -176,6 +199,60 @@ function clampSpeed(value) {
 
   return Math.min(MAX_SPEED, Math.max(MIN_SPEED, num));
 }
+
+timestepInput.addEventListener("input", async () => {
+  const val = Math.max(1, Math.min(300, Number(timestepInput.value) || 5));
+
+  timestepInput.value = val;
+
+  const data = await browser.storage.local.get("settings");
+  const settings = data.settings || {};
+
+  settings.timeStep = val;
+
+  await browser.storage.local.set({ settings });
+
+  updateLabels(settings);
+
+  const [tab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (tab?.id) {
+    browser.tabs.sendMessage(tab.id, {
+      type: "UPDATE_SETTINGS",
+      settings,
+    });
+  }
+});
+
+speedstepInput.addEventListener("input", async () => {
+  const val = Math.max(0.05, Math.min(5, Number(speedstepInput.value) || 0.25));
+
+  speedstepInput.value = val;
+
+  const data = await browser.storage.local.get("settings");
+  const settings = data.settings || {};
+
+  settings.speedStep = val;
+
+  await browser.storage.local.set({ settings });
+
+  updateLabels(settings);
+
+  const [tab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (tab?.id) {
+    browser.tabs.sendMessage(tab.id, {
+      type: "UPDATE_SETTINGS",
+      settings,
+    });
+  }
+});
 
 // input slider and number value parsers
 slider.addEventListener("input", () => {
@@ -230,4 +307,5 @@ btn.addEventListener("click", async () => {
 });
 
 load();
+loadSettingsUI();
 loadHotkeysUI();

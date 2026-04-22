@@ -1,8 +1,7 @@
 // extension core logic
 
-const SPEED_STEP = 0.25;
-const TIME_STEP = 30;
 const MAX_SPEED = 128;
+const MIN_SPEED = 0.05;
 const DEFAULT_HOTKEYS = {
   increase: { key: "+", shift: false, ctrl: false, alt: false },
   decrease: { key: "-", shift: false, ctrl: false, alt: false },
@@ -15,6 +14,17 @@ const DEFAULT_HOTKEYS = {
 let hotkeys = { ...DEFAULT_HOTKEYS };
 let siteSpeeds = {}; // speed values for different websites
 let currentSpeed = 1; // for tracking current speed and ensuring its validness
+let speedStep = 0.25;
+let timeStep = 5;
+
+async function loadSettings() {
+  const data = await browser.storage.local.get("settings");
+
+  const settings = data.settings || {};
+
+  timeStep = settings.timeStep ?? 5;
+  speedStep = settings.speedStep ?? 0.25;
+}
 
 async function loadHotkeys() {
   const data = await browser.storage.local.get("hotkeys");
@@ -243,22 +253,22 @@ document.addEventListener("keydown", async (e) => {
   if (!video) return;
 
   if (matchesHotkey(e, hotkeys.increase)) {
-    let updated = Math.min(currentSpeed + SPEED_STEP, MAX_SPEED);
+    let updated = Math.min(currentSpeed + speedStep, MAX_SPEED);
     await saveSpeedValue(updated);
     showOverlay(video, `${updated}x`);
   } else if (matchesHotkey(e, hotkeys.decrease)) {
-    let updated = Math.max(currentSpeed - SPEED_STEP, SPEED_STEP);
+    let updated = Math.max(currentSpeed - speedStep, MIN_SPEED);
     await saveSpeedValue(updated);
     showOverlay(video, `${updated}x`);
   } else if (matchesHotkey(e, hotkeys.reset)) {
     await saveSpeedValue(1);
     showOverlay(video, `1.0x`);
   } else if (matchesHotkey(e, hotkeys.forward)) {
-    video.currentTime += TIME_STEP;
-    showOverlay(video, `+${TIME_STEP}s`);
+    video.currentTime += timeStep;
+    showOverlay(video, `+${timeStep}s`);
   } else if (matchesHotkey(e, hotkeys.backward)) {
-    video.currentTime -= TIME_STEP;
-    showOverlay(video, `-${TIME_STEP}s`);
+    video.currentTime -= timeStep;
+    showOverlay(video, `-${timeStep}s`);
   } else if (matchesHotkey(e, hotkeys.screenshot)) {
     takeScreenshot(video);
   }
@@ -281,6 +291,11 @@ browser.runtime.onMessage.addListener((message) => {
     takeScreenshot(video);
   }
 
+  if (message?.type === "UPDATE_SETTINGS") {
+    timeStep = message.settings?.timeStep ?? timeStep;
+    speedStep = message.settings?.speedStep ?? speedStep;
+  }
+
   return Promise.resolve();
 });
 
@@ -291,4 +306,5 @@ browser.storage.onChanged.addListener((changes) => {
 });
 
 loadHotkeys();
+loadSettings();
 loadSpeedValues();
