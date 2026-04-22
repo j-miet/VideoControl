@@ -9,6 +9,7 @@ const HOTKEYS = {
   reset: "*",
   forward: "ArrowRight",
   backward: "ArrowLeft",
+  screenshot: "S",
 };
 
 let siteSpeeds = {}; // speed values for different websites
@@ -89,11 +90,11 @@ function createOverlay(video) {
   video.__overlayTimeout = null;
 }
 
-function showOverlay(video, speed) {
+function showOverlay(video, text) {
   const overlay = video.__speedOverlay;
   if (!overlay) return;
 
-  overlay.textContent = `${speed.toFixed(2)}x`;
+  overlay.textContent = text;
   overlay.style.opacity = "1";
 
   if (video.__overlayTimeout) {
@@ -135,6 +136,42 @@ function getActiveVideo() {
   return best;
 }
 
+async function takeScreenshot(video) {
+  try {
+    const canvas = document.createElement("canvas");
+
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+
+    if (!width || !height) return;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, width, height);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "image/png": blob,
+          }),
+        ]);
+
+        showOverlay(video, "📋 Copied!");
+      } catch (err) {
+        console.error("Clipboard write failed:", err);
+        showOverlay(video, "❌ Failed");
+      }
+    }, "image/png");
+  } catch (err) {
+    console.error("Screenshot failed:", err);
+  }
+}
+
 // if any changes in DOM tree, re-apply speed modifier
 const observer = new MutationObserver(() => {
   setSpeed();
@@ -167,6 +204,7 @@ document.addEventListener("keydown", async (e) => {
     } else if (e.key === HOTKEYS.reset) {
       updatedSpeed = 1;
     }
+    showOverlay(video, `${currentSpeed.toFixed(2)}x`);
 
     updatedSpeed = Math.max(SPEED_STEP, Math.min(updatedSpeed, MAX_SPEED));
     await saveSpeedValue(updatedSpeed);
@@ -174,8 +212,16 @@ document.addEventListener("keydown", async (e) => {
 
   if (e.shiftKey && e.key === HOTKEYS.forward) {
     video.currentTime += TIME_STEP;
+    showOverlay(video, `+${SEEK_STEP}s`);
   } else if (e.shiftKey && e.key === HOTKEYS.backward) {
     video.currentTime -= TIME_STEP;
+    showOverlay(video, `-${SEEK_STEP}s`);
+  } else if (e.shiftKey && e.key === HOTKEYS.screenshot) {
+    const video = getActiveVideo();
+    if (!video || e.repeat) return;
+
+    takeScreenshot(video);
+    showOverlay(video, "Screenshot");
   }
 });
 

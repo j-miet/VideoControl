@@ -4,7 +4,7 @@
   "name": "VideoControl",
   "version": "1.0",
 
-  "permissions": ["storage"],
+  "permissions": ["storage", "clipboardWrite"],
   "host_permissions": ["<all_urls>"],
   "browser_specific_settings": {
     "gecko": {
