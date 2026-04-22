@@ -1,10 +1,42 @@
 // user interface logic
 
+const DEFAULT_HOTKEYS = {
+  increase: { key: "+", shift: false, ctrl: false, alt: false },
+  decrease: { key: "-", shift: false, ctrl: false, alt: false },
+  reset: { key: "*", shift: false, ctrl: false, alt: false },
+  forward: { key: "h", shift: true, ctrl: false, alt: false },
+  backward: { key: "g", shift: true, ctrl: false, alt: false },
+  screenshot: { key: "c", shift: false, ctrl: true, alt: false },
+};
+const LABELS = {
+  increase: "Increase speed",
+  decrease: "Decrease speed",
+  reset: "Reset speed to 1.0x",
+  forward: "Forward",
+  backward: "Backward",
+  screenshot: "Screenshot",
+};
+const MIN_SPEED = 0.25;
+const MAX_SPEED = 128;
+
 const slider = document.getElementById("slider");
 const number = document.getElementById("number");
 const btn = document.getElementById("screenshotButton");
 
+let hotkeys = {};
 let currentSite = "default";
+let recordingAction = null;
+
+async function loadHotkeysUI() {
+  const data = await browser.storage.local.get("hotkeys");
+  hotkeys = { ...DEFAULT_HOTKEYS, ...(data.hotkeys || {}) };
+
+  renderHotkeys();
+}
+
+async function saveHotkeys() {
+  await browser.storage.local.set({ hotkeys });
+}
 
 async function load() {
   currentSite = await getCurrentSite();
@@ -55,19 +87,120 @@ async function getCurrentSite() {
   }
 }
 
+function formatHotkey(hk) {
+  const parts = [];
+
+  if (hk.ctrl) parts.push("Ctrl");
+  if (hk.shift) parts.push("Shift");
+  if (hk.alt) parts.push("Alt");
+
+  let key = hk.key;
+
+  if (key === " ") key = "Space";
+  if (key.startsWith("Arrow")) key = key.replace("Arrow", "");
+
+  parts.push(key.toUpperCase?.() === key ? key : key);
+
+  return parts.join(" + ");
+}
+
+function renderHotkeys() {
+  const container = document.getElementById("hotkeys");
+  container.innerHTML = "";
+
+  Object.entries(hotkeys).forEach(([action, config]) => {
+    const row = document.createElement("div");
+    row.className = "hotkey-row";
+
+    const label = document.createElement("span");
+    label.textContent = LABELS[action] || action;
+
+    const btn = document.createElement("button");
+    btn.className = "hotkey-button";
+    btn.textContent = formatHotkey(config);
+
+    btn.addEventListener("click", () => startRecording(action, btn));
+
+    row.appendChild(label);
+    row.appendChild(btn);
+    container.appendChild(row);
+  });
+}
+
+function normalizeKey(key) {
+  // if any changes are needed here, make sure to update matching functionality in control.js
+  if (key === " ") return "Space";
+  if (key.length === 1) return key.toLowerCase();
+  return key;
+}
+
+function startRecording(action, btn) {
+  recordingAction = action;
+
+  btn.classList.add("recording");
+  btn.textContent = "Press keys...";
+
+  function handler(e) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    // ignore modifier presses alone, they must be used together with another key
+    if (["Shift", "Control", "Alt"].includes(e.key)) {
+      return;
+    }
+
+    const newHotkey = {
+      key: normalizeKey(e.key),
+      ctrl: e.ctrlKey,
+      shift: e.shiftKey,
+      alt: e.altKey,
+    };
+
+    hotkeys[recordingAction] = newHotkey;
+
+    saveHotkeys();
+
+    recordingAction = null;
+    window.removeEventListener("keydown", handler);
+
+    renderHotkeys();
+  }
+
+  window.addEventListener("keydown", handler);
+}
+
+function clampSpeed(value) {
+  const num = Number(value);
+
+  if (!Number.isFinite(num)) return 1;
+
+  return Math.min(MAX_SPEED, Math.max(MIN_SPEED, num));
+}
+
 // input slider and number value parsers
 slider.addEventListener("input", () => {
-  const value = parseFloat(slider.value);
+  const value = clampSpeed(slider.value);
 
   number.value = value;
+  slider.value = value;
+
   save(value);
 });
 
 number.addEventListener("input", () => {
-  const value = parseFloat(number.value);
+  const value = clampSpeed(number.value);
 
   slider.value = value;
+  number.value = value;
+
   save(value);
+});
+
+number.addEventListener("blur", () => {
+  const value = clampSpeed(number.value);
+
+  number.value = value;
+  slider.value = value;
 });
 
 // update inputs if changes detected in local storage 'speeds' field
@@ -97,3 +230,4 @@ btn.addEventListener("click", async () => {
 });
 
 load();
+loadHotkeysUI();
