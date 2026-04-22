@@ -20,7 +20,7 @@ async function loadHotkeys() {
   const data = await browser.storage.local.get("hotkeys");
 
   if (data.hotkeys) {
-    hotkeys = { ...DEFAULT_HOTKEYS, ...data.hotkeys };
+    hotkeys = normalizeHotkeys({ ...DEFAULT_HOTKEYS, ...data.hotkeys });
   }
 }
 
@@ -183,21 +183,32 @@ async function takeScreenshot(video) {
 
 function normalizeKey(key) {
   // modify only single characters key and leave special keys unchanged
+  if (key === " ") return "Space";
   if (key.length === 1) return key.toLowerCase();
   return key;
 }
 
 function matchesHotkey(e, config) {
   // TODO could implement keycodes with e.code, making this more compatible with different keyboard layouts
-  const eventKey = normalizeKey(e.key);
-  const configKey = normalizeKey(config.key);
-
   return (
-    eventKey === configKey &&
+    normalizeKey(e.key) === normalizeKey(config.key) &&
     e.shiftKey === !!config.shift &&
     e.ctrlKey === !!config.ctrl &&
     e.altKey === !!config.alt
   );
+}
+
+function normalizeHotkeys(hotkeys) {
+  const result = {};
+
+  for (const [action, hk] of Object.entries(hotkeys)) {
+    result[action] = {
+      ...hk,
+      key: normalizeKey(hk.key),
+    };
+  }
+
+  return result;
 }
 
 // if any changes in DOM tree, re-apply speed modifier
@@ -234,11 +245,14 @@ document.addEventListener("keydown", async (e) => {
   if (matchesHotkey(e, hotkeys.increase)) {
     let updated = Math.min(currentSpeed + SPEED_STEP, MAX_SPEED);
     await saveSpeedValue(updated);
+    showOverlay(video, `${updated}x`);
   } else if (matchesHotkey(e, hotkeys.decrease)) {
     let updated = Math.max(currentSpeed - SPEED_STEP, SPEED_STEP);
     await saveSpeedValue(updated);
+    showOverlay(video, `${updated}x`);
   } else if (matchesHotkey(e, hotkeys.reset)) {
     await saveSpeedValue(1);
+    showOverlay(video, `1.0x`);
   } else if (matchesHotkey(e, hotkeys.forward)) {
     video.currentTime += TIME_STEP;
     showOverlay(video, `+${TIME_STEP}s`);
@@ -268,6 +282,12 @@ browser.runtime.onMessage.addListener((message) => {
   }
 
   return Promise.resolve();
+});
+
+browser.storage.onChanged.addListener((changes) => {
+  if (changes.hotkeys) {
+    hotkeys = { ...DEFAULT_HOTKEYS, ...changes.hotkeys.newValue };
+  }
 });
 
 loadHotkeys();
