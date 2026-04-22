@@ -85,8 +85,8 @@ document.addEventListener("keydown", async (e) => {
   // prevent writing into any input fields
   if (
     active &&
-    (active.tagName === "INPUT" ||
-      active.tagName === "TEXTAREA" ||
+    (active.tagName === "input" ||
+      active.tagName === "textarea" ||
       active.isContentEditable)
   ) {
     return;
@@ -223,6 +223,8 @@ function attachSpeedListeners() {
     if (video.__rateListenerAttached) return;
 
     video.__rateListenerAttached = true;
+    video.addEventListener("play", setSpeed);
+    video.addEventListener("loadedmetadata", setSpeed);
 
     // speed enforcing: this way pausing or moving to another timestamp won't default back to 1.0x speed
     video.addEventListener("ratechange", () => {
@@ -250,8 +252,6 @@ observer.observe(document.documentElement, {
   childList: true,
   subtree: true,
 });
-
-setInterval(handleDomChange, 1000);
 
 // video (utils)
 function getActiveVideo() {
@@ -344,6 +344,14 @@ browser.runtime.onMessage.addListener((message) => {
     if (!Number.isFinite(speed) || speed <= 0) return Promise.resolve();
 
     saveSpeedValue(speed);
+  }
+
+  if (message?.type === "GET_CURRENT_SPEED") {
+    const video = getActiveVideo();
+
+    return Promise.resolve({
+      speed: video?.playbackRate ?? currentSpeed ?? 1,
+    });
   }
 
   if (message?.type === "SCREENSHOT") {

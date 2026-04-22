@@ -252,13 +252,26 @@ async function load() {
   currentSite = await getCurrentSite();
   document.getElementById("site").textContent = currentSite;
 
-  const data = await browser.storage.local.get("speeds");
-  const siteSpeeds = data.speeds || {};
+  const [tab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
 
-  const speed = Number(siteSpeeds[currentSite]) || 1;
+  if (tab?.id) {
+    try {
+      const response = await browser.tabs.sendMessage(tab.id, {
+        type: "GET_CURRENT_SPEED",
+      });
 
-  slider.value = speed;
-  number.value = speed;
+      const speed = Number(response?.speed) || 1;
+
+      slider.value = speed;
+      number.value = speed;
+    } catch {
+      slider.value = 1;
+      number.value = 1;
+    }
+  }
 }
 
 async function save(speed) {
@@ -328,15 +341,6 @@ btn.addEventListener("click", async () => {
   }
 });
 
-// listen local storage speed value changes and update ui input/slider
-browser.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local" || !changes.speeds) return;
-
-  const speeds = changes.speeds.newValue || {};
-  const speed = Number(speeds[currentSite]) || 1;
-
-  slider.value = speed;
-  number.value = speed;
-});
+window.addEventListener("focus", load); // resync UI when switching tabs
 
 initializeUI();
