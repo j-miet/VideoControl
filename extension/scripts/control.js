@@ -11,11 +11,22 @@ const DEFAULT_HOTKEYS = {
   screenshot: { key: "c", shift: false, ctrl: true, alt: false },
 };
 
+let lastVideo = null;
 let hotkeys = { ...DEFAULT_HOTKEYS };
 let siteSpeeds = {}; // speed values for different websites
 let currentSpeed = 1; // for tracking current speed and ensuring its validness
 let speedStep = 0.25;
 let timeStep = 5;
+
+async function initialize() {
+  handleDomChange();
+
+  await loadSettings();
+  await loadHotkeys();
+  await loadSpeedValues();
+}
+
+// settings
 
 async function loadSettings() {
   const data = await browser.storage.local.get("settings");
@@ -26,6 +37,8 @@ async function loadSettings() {
   speedStep = settings.speedStep ?? 0.25;
 }
 
+// hotkeys
+
 async function loadHotkeys() {
   const data = await browser.storage.local.get("hotkeys");
 
@@ -34,6 +47,84 @@ async function loadHotkeys() {
   }
 }
 
+function normalizeKey(key) {
+  // modify only single characters key and leave special keys unchanged
+  if (key === " ") return "Space";
+  if (key.length === 1) return key.toLowerCase();
+  return key;
+}
+
+function matchesHotkey(e, config) {
+  // TODO could implement keycodes with e.code, making this more compatible with different keyboard layouts
+  return (
+    normalizeKey(e.key) === normalizeKey(config.key) &&
+    e.shiftKey === !!config.shift &&
+    e.ctrlKey === !!config.ctrl &&
+    e.altKey === !!config.alt
+  );
+}
+
+function normalizeHotkeys(hotkeys) {
+  const result = {};
+
+  for (const [action, hk] of Object.entries(hotkeys)) {
+    result[action] = {
+      ...hk,
+      key: normalizeKey(hk.key),
+    };
+  }
+
+  return result;
+}
+
+document.addEventListener("keydown", async (e) => {
+  if (e.repeat) return;
+
+  const active = document.activeElement;
+
+  // prevent writing into any input fields
+  if (
+    active &&
+    (active.tagName === "INPUT" ||
+      active.tagName === "TEXTAREA" ||
+      active.isContentEditable)
+  ) {
+    return;
+  }
+
+  if (["Shift", "Control", "Alt"].includes(e.key)) return; // ignore modifier keys when used alone
+
+  const video = getActiveVideo();
+  if (!video) return;
+
+  if (matchesHotkey(e, hotkeys.increase)) {
+    let updated = Math.min(currentSpeed + speedStep, MAX_SPEED);
+    await saveSpeedValue(updated);
+
+    showOverlay(video, `${updated}x`);
+  } else if (matchesHotkey(e, hotkeys.decrease)) {
+    let updated = Math.max(currentSpeed - speedStep, MIN_SPEED);
+    await saveSpeedValue(updated);
+
+    showOverlay(video, `${updated}x`);
+  } else if (matchesHotkey(e, hotkeys.reset)) {
+    await saveSpeedValue(1);
+
+    showOverlay(video, `1.0x`);
+  } else if (matchesHotkey(e, hotkeys.forward)) {
+    video.currentTime += timeStep;
+
+    showOverlay(video, `+${timeStep}s`);
+  } else if (matchesHotkey(e, hotkeys.backward)) {
+    video.currentTime -= timeStep;
+
+    showOverlay(video, `-${timeStep}s`);
+  } else if (matchesHotkey(e, hotkeys.screenshot)) {
+    takeScreenshot(video);
+  }
+});
+
+// video (speed control)
 async function loadSpeedValues() {
   const data = await browser.storage.local.get("speeds");
 
@@ -68,7 +159,7 @@ function setSpeed() {
   const video = getActiveVideo();
   if (!video) return;
 
-  createOverlay(video);
+  createSpeedOverlay(video);
 
   if (video.playbackRate !== currentSpeed) {
     video.playbackRate = currentSpeed;
@@ -76,7 +167,7 @@ function setSpeed() {
   }
 }
 
-function createOverlay(video) {
+function createSpeedOverlay(video) {
   if (video.__speedOverlay) return;
 
   const overlay = document.createElement("div");
@@ -125,34 +216,87 @@ function showOverlay(video, text) {
   }, 1500);
 }
 
+function attachSpeedListeners() {
+  const videos = document.querySelectorAll("video");
+
+  videos.forEach((video) => {
+    if (video.__rateListenerAttached) return;
+
+    video.__rateListenerAttached = true;
+
+    // speed enforcing: this way pausing or moving to another timestamp won't default back to 1.0x speed
+    video.addEventListener("ratechange", () => {
+      if (Math.abs(video.playbackRate - currentSpeed) > 0.01) {
+        video.playbackRate = currentSpeed;
+      }
+    });
+  });
+}
+
+function handleDomChange() {
+  attachSpeedListeners();
+
+  const video = getActiveVideo();
+
+  if (video && video !== lastVideo) {
+    lastVideo = video;
+    setSpeed();
+  }
+}
+
+// if any changes in DOM tree, re-apply speed modifier. Also add periodical updater if no changes are detected
+const observer = new MutationObserver(handleDomChange);
+observer.observe(document.documentElement, {
+  childList: true,
+  subtree: true,
+});
+
+setInterval(handleDomChange, 1000);
+
+// video (utils)
 function getActiveVideo() {
-  const videos = Array.from(document.querySelectorAll("video"));
-
-  let best = null;
-  let bestScore = 0;
-
-  for (const video of videos) {
-    const rect = video.getBoundingClientRect();
-
-    if (
-      rect.width < 200 ||
-      rect.height < 150 ||
-      rect.bottom < 0 ||
-      rect.top > window.innerHeight
-    ) {
-      continue;
-    }
-
-    const score = rect.width * rect.height;
-
-    // find active video by comparing video size
-    if (score > bestScore) {
-      best = video;
-      bestScore = score;
-    }
+  let video = null;
+  if (location.hostname.includes("youtube.com")) {
+    video = document.querySelector("video.html5-main-video");
+  } else if (location.hostname.includes("twitch.tv")) {
+    video = document.querySelector("video");
   }
 
-  return best;
+  if (video) {
+    return video;
+  } else {
+    const videos = Array.from(document.querySelectorAll("video"));
+
+    let best = null;
+    let bestScore = 0;
+
+    for (const video of videos) {
+      if (!video.isConnected) continue;
+
+      const rect = video.getBoundingClientRect();
+
+      if (
+        rect.width < 200 ||
+        rect.height < 150 ||
+        rect.bottom < 0 ||
+        rect.top > window.innerHeight
+      )
+        continue;
+
+      const isPlaying =
+        !video.paused && video.currentTime > 0 && video.readyState > 2; // prioritize playing videos
+
+      const score = rect.width * rect.height * (isPlaying ? 2 : 1);
+
+      // find most suitable candidate for main video
+      if (score > bestScore) {
+        best = video;
+        bestScore = score;
+      }
+    }
+
+    return best;
+  }
 }
 
 async function takeScreenshot(video) {
@@ -191,91 +335,9 @@ async function takeScreenshot(video) {
   }
 }
 
-function normalizeKey(key) {
-  // modify only single characters key and leave special keys unchanged
-  if (key === " ") return "Space";
-  if (key.length === 1) return key.toLowerCase();
-  return key;
-}
-
-function matchesHotkey(e, config) {
-  // TODO could implement keycodes with e.code, making this more compatible with different keyboard layouts
-  return (
-    normalizeKey(e.key) === normalizeKey(config.key) &&
-    e.shiftKey === !!config.shift &&
-    e.ctrlKey === !!config.ctrl &&
-    e.altKey === !!config.alt
-  );
-}
-
-function normalizeHotkeys(hotkeys) {
-  const result = {};
-
-  for (const [action, hk] of Object.entries(hotkeys)) {
-    result[action] = {
-      ...hk,
-      key: normalizeKey(hk.key),
-    };
-  }
-
-  return result;
-}
-
-// if any changes in DOM tree, re-apply speed modifier
-const observer = new MutationObserver(() => {
-  setSpeed();
-});
-
-observer.observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-});
-
-// hotkeys
-document.addEventListener("keydown", async (e) => {
-  if (e.repeat) return;
-
-  const active = document.activeElement;
-
-  // prevent writing into any input fields
-  if (
-    active &&
-    (active.tagName === "INPUT" ||
-      active.tagName === "TEXTAREA" ||
-      active.isContentEditable)
-  ) {
-    return;
-  }
-
-  if (["Shift", "Control", "Alt"].includes(e.key)) return; // ignore modifier keys when used alone
-
-  const video = getActiveVideo();
-  if (!video) return;
-
-  if (matchesHotkey(e, hotkeys.increase)) {
-    let updated = Math.min(currentSpeed + speedStep, MAX_SPEED);
-    await saveSpeedValue(updated);
-    showOverlay(video, `${updated}x`);
-  } else if (matchesHotkey(e, hotkeys.decrease)) {
-    let updated = Math.max(currentSpeed - speedStep, MIN_SPEED);
-    await saveSpeedValue(updated);
-    showOverlay(video, `${updated}x`);
-  } else if (matchesHotkey(e, hotkeys.reset)) {
-    await saveSpeedValue(1);
-    showOverlay(video, `1.0x`);
-  } else if (matchesHotkey(e, hotkeys.forward)) {
-    video.currentTime += timeStep;
-    showOverlay(video, `+${timeStep}s`);
-  } else if (matchesHotkey(e, hotkeys.backward)) {
-    video.currentTime -= timeStep;
-    showOverlay(video, `-${timeStep}s`);
-  } else if (matchesHotkey(e, hotkeys.screenshot)) {
-    takeScreenshot(video);
-  }
-});
-
-// listen to ui inputs and update values, also onMessage should always return a promise
+// synchronization with ui values
 browser.runtime.onMessage.addListener((message) => {
+  // listen to ui inputs and update values, also onMessage should always return a promise
   if (message?.type === "SET_SPEED") {
     const speed = Number(message.speed);
 
@@ -305,6 +367,4 @@ browser.storage.onChanged.addListener((changes) => {
   }
 });
 
-loadHotkeys();
-loadSettings();
-loadSpeedValues();
+initialize();
