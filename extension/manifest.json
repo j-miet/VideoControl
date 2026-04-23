@@ -1,11 +1,11 @@
 {
-  "description": "Control HTML5 video playback speed",
+  "description": "Basic desktop HTML5 video playback manipulation: change speed individually per video, forward/backward custom lengths and copy video frames to clipboard.",
   "manifest_version": 3,
   "name": "VideoControl",
   "version": "1.0",
 
-  "permissions": ["storage", "clipboardWrite"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": ["storage", "clipboardWrite", "tabs"],
+
   "browser_specific_settings": {
     "gecko": {
       "id": "videocontrol@mozilla.org",
@@ -16,8 +16,10 @@
   },
 
   "action": {
+    "default_title": "VideoControl",
     "default_popup": "popup/ui.html"
   },
+
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
