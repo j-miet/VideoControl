@@ -4,8 +4,8 @@ const DEFAULT_HOTKEYS = {
   increase: { key: "+", shift: false, ctrl: false, alt: false },
   decrease: { key: "-", shift: false, ctrl: false, alt: false },
   reset: { key: "*", shift: false, ctrl: false, alt: false },
-  forward: { key: "h", shift: true, ctrl: false, alt: false },
-  backward: { key: "g", shift: true, ctrl: false, alt: false },
+  forward: { key: "ArrowRight", shift: false, ctrl: false, alt: false },
+  backward: { key: "ArrowLeft", shift: false, ctrl: false, alt: false },
   screenshot: { key: "c", shift: false, ctrl: true, alt: false },
 };
 const LABELS = {
