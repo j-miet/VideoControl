@@ -11,15 +11,24 @@ const DEFAULT_HOTKEYS = {
   screenshot: { key: "c", shift: false, ctrl: true, alt: false },
 };
 
-let lastVideo = null;
 let hotkeys = { ...DEFAULT_HOTKEYS };
 let siteSpeeds = {}; // speed values for different websites
 let currentSpeed = 1; // for tracking current speed and ensuring its validness
 let speedStep = 0.25;
 let timeStep = 5;
+let lastVideo = null;
+let cachedVideo = null;
+let cacheTime = 0;
 
 async function initialize() {
-  handleDomChange();
+  attachExistingVideos();
+
+  // if any changes in DOM tree, re-apply speed modifier
+  const observer = new MutationObserver(handleDomChange);
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 
   await loadSettings();
   await loadHotkeys();
@@ -30,7 +39,6 @@ async function initialize() {
 
 async function loadSettings() {
   const data = await browser.storage.local.get("settings");
-
   const settings = data.settings || {};
 
   timeStep = settings.timeStep ?? 5;
@@ -54,16 +62,6 @@ function normalizeKey(key) {
   return key;
 }
 
-function matchesHotkey(e, config) {
-  // TODO could implement keycodes with e.code, making this more compatible with different keyboard layouts
-  return (
-    normalizeKey(e.key) === normalizeKey(config.key) &&
-    e.shiftKey === !!config.shift &&
-    e.ctrlKey === !!config.ctrl &&
-    e.altKey === !!config.alt
-  );
-}
-
 function normalizeHotkeys(hotkeys) {
   const result = {};
 
@@ -77,65 +75,81 @@ function normalizeHotkeys(hotkeys) {
   return result;
 }
 
-document.addEventListener("keydown", async (e) => {
-  if (e.repeat) return;
+function matchesHotkey(e, config) {
+  // TODO could implement keycodes with e.code, making this more compatible with different keyboard layouts
+  return (
+    normalizeKey(e.key) === normalizeKey(config.key) &&
+    e.shiftKey === !!config.shift &&
+    e.ctrlKey === !!config.ctrl &&
+    e.altKey === !!config.alt
+  );
+}
 
-  const active = document.activeElement;
+document.addEventListener(
+  "keydown",
+  async (e) => {
+    if (e.repeat) return;
 
-  // prevent writing into any input fields
-  if (
-    active &&
-    (active.tagName === "input" ||
-      active.tagName === "textarea" ||
-      active.isContentEditable)
-  ) {
-    return;
-  }
+    const active = document.activeElement;
 
-  if (["Shift", "Control", "Alt"].includes(e.key)) return; // ignore modifier keys when used alone
+    // prevent writing into any input fields
+    if (
+      active &&
+      (active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        active.isContentEditable)
+    ) {
+      return;
+    }
 
-  const video = getActiveVideo();
-  if (!video) return;
+    if (["Shift", "Control", "Alt"].includes(e.key)) return; // ignore modifier keys when used alone
 
-  if (matchesHotkey(e, hotkeys.increase)) {
-    let updated = Math.min(currentSpeed + speedStep, MAX_SPEED);
-    await saveSpeedValue(updated);
+    const video = getActiveVideoCached();
+    if (!video) return;
 
-    showOverlay(video, `${updated}x`);
-  } else if (matchesHotkey(e, hotkeys.decrease)) {
-    let updated = Math.max(currentSpeed - speedStep, MIN_SPEED);
-    await saveSpeedValue(updated);
+    if (matchesHotkey(e, hotkeys.increase)) {
+      e.preventDefault(); // prevent conflict with arrow key inputs
+      let updated = Math.min(currentSpeed + speedStep, MAX_SPEED);
+      await saveSpeedValue(updated);
 
-    showOverlay(video, `${updated}x`);
-  } else if (matchesHotkey(e, hotkeys.reset)) {
-    await saveSpeedValue(1);
+      showOverlay(video, `${updated}x`);
+    } else if (matchesHotkey(e, hotkeys.decrease)) {
+      e.preventDefault();
+      let updated = Math.max(currentSpeed - speedStep, MIN_SPEED);
+      await saveSpeedValue(updated);
 
-    showOverlay(video, `1.0x`);
-  } else if (matchesHotkey(e, hotkeys.forward)) {
-    video.currentTime += timeStep;
+      showOverlay(video, `${updated}x`);
+    } else if (matchesHotkey(e, hotkeys.reset)) {
+      await saveSpeedValue(1);
 
-    showOverlay(video, `+${timeStep}s`);
-  } else if (matchesHotkey(e, hotkeys.backward)) {
-    video.currentTime -= timeStep;
+      showOverlay(video, `1.0x`);
+    } else if (matchesHotkey(e, hotkeys.forward)) {
+      video.currentTime += timeStep;
 
-    showOverlay(video, `-${timeStep}s`);
-  } else if (matchesHotkey(e, hotkeys.screenshot)) {
-    takeScreenshot(video);
-  }
-});
+      showOverlay(video, `+${timeStep}s`);
+    } else if (matchesHotkey(e, hotkeys.backward)) {
+      video.currentTime -= timeStep;
+
+      showOverlay(video, `-${timeStep}s`);
+    } else if (matchesHotkey(e, hotkeys.screenshot)) {
+      takeScreenshot(video);
+    }
+  },
+  true, // must add this flag to allow overriding site's own preferences
+);
 
 // video (speed control)
+
 async function loadSpeedValues() {
   const data = await browser.storage.local.get("speeds");
-
   siteSpeeds = data.speeds || {};
-  currentSpeed = getSpeed();
 
+  currentSpeed = getSpeed();
   setSpeed();
 }
 
 async function saveSpeedValue(speed) {
-  const site = getHostName();
+  const site = location.hostname;
 
   currentSpeed = speed;
   siteSpeeds[site] = speed;
@@ -144,28 +158,73 @@ async function saveSpeedValue(speed) {
   setSpeed();
 }
 
-function getHostName() {
-  return location.hostname;
-}
-
 function getSpeed() {
-  const site = getHostName();
+  const site = location.hostname;
   return siteSpeeds[site] ?? siteSpeeds["default"] ?? 1;
 }
 
 function setSpeed() {
   if (!Number.isFinite(currentSpeed) || currentSpeed <= 0) return;
 
-  const video = getActiveVideo();
+  const video = getActiveVideoCached();
   if (!video) return;
 
   createSpeedOverlay(video);
 
-  if (video.playbackRate !== currentSpeed) {
+  if (Math.abs(video.playbackRate - currentSpeed) > 0.01) {
     video.playbackRate = currentSpeed;
-    showOverlay(video, currentSpeed);
+    showOverlay(video, `${currentSpeed}x`);
   }
 }
+
+// video (attachment)
+
+function attachExistingVideos() {
+  document.querySelectorAll("video").forEach(attachSpeedListener);
+}
+
+function attachSpeedListener(video) {
+  if (video.__rateListenerAttached) return;
+  video.__rateListenerAttached = true;
+
+  video.addEventListener("play", setSpeed);
+  video.addEventListener("loadedmetadata", setSpeed);
+
+  let enforcing = false;
+
+  // speed enforcing: this way pausing or moving to another timestamp won't default back to 1.0x speed
+  video.addEventListener("ratechange", () => {
+    if (enforcing) return;
+
+    if (Math.abs(video.playbackRate - currentSpeed) > 0.01) {
+      enforcing = true;
+      video.playbackRate = currentSpeed;
+      enforcing = false;
+    }
+  });
+}
+
+function handleDomChange(mutations) {
+  for (const m of mutations) {
+    if (!m.addedNodes.length) continue;
+
+    for (const node of m.addedNodes) {
+      if (node.tagName === "VIDEO") {
+        attachSpeedListener(node);
+      } else if (node.querySelectorAll) {
+        node.querySelectorAll("video").forEach(attachSpeedListener);
+      }
+    }
+  }
+
+  const video = getActiveVideoCached();
+  if (video && video !== lastVideo) {
+    lastVideo = video;
+    setSpeed();
+  }
+}
+
+// video (overlay)
 
 function createSpeedOverlay(video) {
   if (video.__speedOverlay) return;
@@ -216,44 +275,8 @@ function showOverlay(video, text) {
   }, 1500);
 }
 
-function attachSpeedListeners() {
-  const videos = document.querySelectorAll("video");
-
-  videos.forEach((video) => {
-    if (video.__rateListenerAttached) return;
-
-    video.__rateListenerAttached = true;
-    video.addEventListener("play", setSpeed);
-    video.addEventListener("loadedmetadata", setSpeed);
-
-    // speed enforcing: this way pausing or moving to another timestamp won't default back to 1.0x speed
-    video.addEventListener("ratechange", () => {
-      if (Math.abs(video.playbackRate - currentSpeed) > 0.01) {
-        video.playbackRate = currentSpeed;
-      }
-    });
-  });
-}
-
-function handleDomChange() {
-  attachSpeedListeners();
-
-  const video = getActiveVideo();
-
-  if (video && video !== lastVideo) {
-    lastVideo = video;
-    setSpeed();
-  }
-}
-
-// if any changes in DOM tree, re-apply speed modifier. Also add periodical updater if no changes are detected
-const observer = new MutationObserver(handleDomChange);
-observer.observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-});
-
 // video (utils)
+
 function getActiveVideo() {
   let video = null;
   if (location.hostname.includes("youtube.com")) {
@@ -299,6 +322,16 @@ function getActiveVideo() {
   }
 }
 
+function getActiveVideoCached() {
+  const now = performance.now();
+  if (now - cacheTime < 500) return cachedVideo;
+
+  cacheTime = now;
+  cachedVideo = getActiveVideo();
+
+  return cachedVideo;
+}
+
 async function takeScreenshot(video) {
   try {
     const canvas = document.createElement("canvas");
@@ -319,9 +352,7 @@ async function takeScreenshot(video) {
 
       try {
         await navigator.clipboard.write([
-          new ClipboardItem({
-            "image/png": blob,
-          }),
+          new ClipboardItem({ "image/png": blob }),
         ]);
 
         showOverlay(video, "Screenshot Copied!");
@@ -336,18 +367,17 @@ async function takeScreenshot(video) {
 }
 
 // synchronization with ui values
+
 browser.runtime.onMessage.addListener((message) => {
   // listen to ui inputs and update values, also onMessage should always return a promise
   if (message?.type === "SET_SPEED") {
     const speed = Number(message.speed);
 
-    if (!Number.isFinite(speed) || speed <= 0) return Promise.resolve();
-
-    saveSpeedValue(speed);
+    if (Number.isFinite(speed) && speed > 0) saveSpeedValue(speed);
   }
 
   if (message?.type === "GET_CURRENT_SPEED") {
-    const video = getActiveVideo();
+    const video = getActiveVideoCached();
 
     return Promise.resolve({
       speed: video?.playbackRate ?? currentSpeed ?? 1,
@@ -355,10 +385,8 @@ browser.runtime.onMessage.addListener((message) => {
   }
 
   if (message?.type === "SCREENSHOT") {
-    const video = getActiveVideo();
-    if (!video) return;
-
-    takeScreenshot(video);
+    const video = getActiveVideoCached();
+    if (video) takeScreenshot(video);
   }
 
   if (message?.type === "UPDATE_SETTINGS") {
@@ -371,7 +399,10 @@ browser.runtime.onMessage.addListener((message) => {
 
 browser.storage.onChanged.addListener((changes) => {
   if (changes.hotkeys) {
-    hotkeys = { ...DEFAULT_HOTKEYS, ...changes.hotkeys.newValue };
+    hotkeys = normalizeHotkeys({
+      ...DEFAULT_HOTKEYS,
+      ...changes.hotkeys.newValue,
+    });
   }
 });
 
