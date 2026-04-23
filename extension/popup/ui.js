@@ -211,6 +211,26 @@ function normalizeKey(key) {
   return key;
 }
 
+function isSameHotkey(a, b) {
+  return (
+    normalizeKey(a.key) === normalizeKey(b.key) &&
+    !!a.ctrl === !!b.ctrl &&
+    !!a.shift === !!b.shift &&
+    !!a.alt === !!b.alt
+  );
+}
+
+function findConflict(newHotkey, currentAction) {
+  for (const [action, hk] of Object.entries(hotkeys)) {
+    if (action === currentAction) continue;
+
+    if (isSameHotkey(hk, newHotkey)) {
+      return action;
+    }
+  }
+  return null;
+}
+
 function startRecording(action, btn) {
   recordingAction = action;
 
@@ -232,6 +252,21 @@ function startRecording(action, btn) {
       shift: e.shiftKey,
       alt: e.altKey,
     };
+
+    const conflict = findConflict(newHotkey, recordingAction);
+
+    if (conflict) {
+      btn.textContent = `Already used by: ${LABELS[conflict].label}`;
+      btn.classList.add("error");
+
+      setTimeout(() => {
+        recordingAction = null;
+        window.removeEventListener("keydown", handler);
+        renderHotkeys();
+      }, 1000);
+
+      return;
+    }
 
     hotkeys[recordingAction] = newHotkey;
 
