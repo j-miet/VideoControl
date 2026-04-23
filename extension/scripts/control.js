@@ -51,7 +51,9 @@ async function loadHotkeys() {
   const data = await browser.storage.local.get("hotkeys");
 
   if (data.hotkeys) {
-    hotkeys = normalizeHotkeys({ ...DEFAULT_HOTKEYS, ...data.hotkeys });
+    hotkeys = deduplicateHotkeys(
+      normalizeHotkeys({ ...DEFAULT_HOTKEYS, ...data.hotkeys }),
+    );
   }
 }
 
@@ -83,6 +85,25 @@ function matchesHotkey(e, config) {
     e.ctrlKey === !!config.ctrl &&
     e.altKey === !!config.alt
   );
+}
+
+function deduplicateHotkeys(hotkeys) {
+  const seen = new Map();
+  const result = {};
+
+  for (const [action, hk] of Object.entries(hotkeys)) {
+    const key = `${hk.key}:${hk.ctrl}:${hk.shift}:${hk.alt}`;
+
+    if (seen.has(key)) {
+      console.warn(`Hotkey conflict: ${action} clashes with ${seen.get(key)}`);
+      continue;
+    }
+
+    seen.set(key, action);
+    result[action] = hk;
+  }
+
+  return result;
 }
 
 document.addEventListener(
