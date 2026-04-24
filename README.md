@@ -10,18 +10,18 @@
   - stores latest value separately for each site
     - if you open a new video on same site e.g. Youtube, it uses this shared value as default
     - each site tracks it's own speed state -> Youtube and Twitch speed stays separated
-- customize step lengths for time and speed (defaults are 5s and 0.25x respectively)
+- customize step lengths for seeking and speed (defaults are 5s and 0.25x respectively)
 - take screenshot from current video frame and copy it to clipboard
 - simple popup UI where you can customize settings and hotkeys.
   - hovering mouse over labels displays a short info string for each
+- small overlay on top-left corner of video to briefly display speed updates and screenshot capturing
 
 ## Permissions
 
 This extension requires following permissions from user:
 
 - `storage` -> allow use of browser local storage to store and retrieve website-specific speed values + global
-  time/speed steps and hotkeys.
-  for speed/time steps and hotkeys
+  seek/speed steps and hotkeys.
 - `clipboardWrite` -> allow taking screenshots from current tab's main video and copy them to clipboard
 - `tabs` -> required for continuos synchronization between UI and content script.
   In particular
