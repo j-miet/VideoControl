@@ -43,7 +43,7 @@ const MAX_TIMESTEP = 300;
 
 const slider = document.getElementById("slider");
 const number = document.getElementById("number");
-const btn = document.getElementById("screenshotButton");
+const screenshotButton = document.getElementById("screenshotButton");
 const timestepInput = document.getElementById("timeStep");
 const speedstepInput = document.getElementById("speedStep");
 
@@ -363,7 +363,7 @@ function clampSpeed(value) {
 
 // video (utils)
 
-btn.addEventListener("click", async () => {
+screenshotButton.addEventListener("click", async () => {
   const [tab] = await browser.tabs.query({
     active: true,
     currentWindow: true,
