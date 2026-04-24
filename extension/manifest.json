@@ -9,7 +9,10 @@
 
   "browser_specific_settings": {
     "gecko": {
-      "id": "videocontrol@mozilla.org"
+      "id": "videocontrol@6290b653-9688-4061-92e6-aa7e68e425f3",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
 
