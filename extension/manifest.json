@@ -1,7 +1,7 @@
 {
   "name": "VideoControl",
   "short_name": "VideoControl",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "manifest_version": 3,
   "description": "Control HTML5 video playback speed, forward/backward custom lengths and take screenshots of videos on any website",
   "homepage_url": "https://github.com/j-miet/VideoControl",
