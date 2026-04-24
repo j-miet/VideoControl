@@ -1,11 +1,10 @@
 <p align="center"><img src="imgs/ui.png" /></p>
-<p align="center">Popup user interface for VideoControl</p>
 
-### VideoControl is a Firefox desktop browser extension for basic video playback manipulation
+## Firefox desktop-only browser extension for basic HTML5 video control
 
 ## Features
 
-- video playback speed control
+- HTML5 video playback speed control
   - speed multipliers range from 0.05x to 128x
   - can modify speed value individually for each video
   - stores latest value separately for each site
