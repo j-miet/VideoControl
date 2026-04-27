@@ -1,6 +1,12 @@
 <p align="center"><img src="imgs/ui.png" /></p>
 
-## Firefox desktop-only browser extension for basic HTML5 video control
+<center>
+<h2>Firefox <i>desktop-only</i> browser extension for basic HTML5 video control</h2>
+</center>
+
+<center>
+<a href=https://addons.mozilla.org/en-US/firefox/addon/videocontrol><h2>Install extension here</h2></a>
+</center>
 
 ## Features
 
@@ -23,7 +29,7 @@ This extension requires following permissions from user:
 - `storage` -> allow use of browser local storage to store and retrieve website-specific speed values + global
   seek/speed steps and hotkeys.
 - `clipboardWrite` -> allow taking screenshots from current tab's main video and copy them to clipboard
-- `tabs` -> required for continuos synchronization between UI and content script.
+- `tabs` -> required for continuous synchronization between UI and content script.
   In particular
   - **tabs.query** is used for easily identifying active browser tab in the current window
   - **tabs.sendmessage** allows communication with content script (control.js) inside the current tab. Because UI and
@@ -48,8 +54,9 @@ This extension requires following permissions from user:
     > In conclusion:
     >
     > - "tabs" permission is only used to create a fluid interface between UI and active browser tab
-    > - data from inactive tabs is not accessed
     > - browsing history is not collected or stored
+    > - data from inactive tabs is not accessed
+    > - any data processing in active tab is done locally inside user's browser. This extension will not collect, store or transmit it to third-party entities.
 
 ## Issues
 
