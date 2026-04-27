@@ -1,12 +1,8 @@
 <p align="center"><img src="imgs/ui.png" /></p>
 
-<center>
-<h2>Firefox <i>desktop-only</i> browser extension for basic HTML5 video control</h2>
-</center>
+## Firefox _desktop-only_ browser extension for basic HTML5 video control</h2>
 
-<center>
-<a href=https://addons.mozilla.org/en-US/firefox/addon/videocontrol><h2>Install extension here</h2></a>
-</center>
+### [Install extension here](https://addons.mozilla.org/en-US/firefox/addon/videocontrol)
 
 ## Features
 
