@@ -16,7 +16,6 @@
 - take screenshot from current video frame and copy it to clipboard
 - simple popup UI where you can customize settings and hotkeys.
   - hovering mouse over labels displays a short info string for each
-- small overlay on top-left corner of video to briefly display speed updates and screenshot capturing
 
 ## Permissions
 
