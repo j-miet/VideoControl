@@ -42,7 +42,7 @@ This extension requires following permissions from user:
   - synchronize UI with active video tab: updates domain name and speed slider/input fields
   - send messages to call scripts and perform speed change, step forward/backward or take a screenshot.
 
-    > For these reasons, **"tabs" is used over "activeTab"**. As "activeTab" only allows temporary access after user's
+    > For these reasons, **"tabs" is used over "activeTab"**. As "activeTab" only gives temporary access after user's
     > action, it won't allow sending queries or performing data synchronizations autonomously in the background which
     > this extension relies on.
     >
@@ -51,7 +51,7 @@ This extension requires following permissions from user:
     > - "tabs" permission is only used to create a fluid interface between UI and active browser tab
     > - browsing history is not collected or stored
     > - data from inactive tabs is not accessed
-    > - any data processing in active tab is done locally inside user's browser. This extension will not collect, store or transmit it to third-party entities.
+    > - active tabs will only access and modify settings data from user's local browser storage. Extension will never collect, persist or send forward any personal, user-identifying data
 
 ## Issues
 
@@ -62,3 +62,7 @@ Current:
 - code uses key string values instead of keycodes. This could cause conflicts on different keyboard layouts
 - when updating hotkeys, arrow keys seem to sometimes just break and refuse to register. Haven't had this happen with
   other keys, however
+- despite attempting to override default behavior of arrow key seeking controls, sites such as Youtube and Twitch still include their own values in addition to user's seek value.
+  - for example: setting seek to 10s, having forward hotkey as "Right" then pressing right arrow -> Youtube video
+    forwards 15s instead of 10s.
+  - using anything else than default left & right arrow for seeking works as expected
